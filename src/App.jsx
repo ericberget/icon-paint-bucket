@@ -16,15 +16,9 @@ import { saveIcons, loadIcons } from './utils/iconStorage';
 
 // LocalStorage keys for persisting state
 const STORAGE_KEY = 'icon-paint-bucket-brand';
-const CUSTOM_COLORS_KEY = 'icon-paint-bucket-custom-colors';
+const BRAND_OVERRIDES_KEY = 'icon-paint-bucket-brand-overrides';
+const DELETED_BRANDS_KEY = 'icon-paint-bucket-deleted-brands';
 const FAVORITES_KEY = 'icon-paint-bucket-favorites';
-
-// Default custom brand colors
-const DEFAULT_CUSTOM_COLORS = {
-  primary: '#1E40AF',
-  secondary: '#64748B',
-  accent: '#E2E8F0',
-};
 
 // Toast notification component
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -97,36 +91,52 @@ function App() {
     return saved || DEFAULT_BRAND_ID;
   });
 
-  // State for custom brand colors (with localStorage persistence)
-  const [customColors, setCustomColors] = useState(() => {
-    const saved = localStorage.getItem(CUSTOM_COLORS_KEY);
+  // State for brand color overrides (any brand can be edited)
+  const [brandOverrides, setBrandOverrides] = useState(() => {
+    const saved = localStorage.getItem(BRAND_OVERRIDES_KEY);
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch {
-        return DEFAULT_CUSTOM_COLORS;
+        return {};
       }
     }
-    return DEFAULT_CUSTOM_COLORS;
+    return {};
+  });
+
+  // State for deleted brand IDs
+  const [deletedBrands, setDeletedBrands] = useState(() => {
+    const saved = localStorage.getItem(DELETED_BRANDS_KEY);
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
   });
 
   // Toast notifications
   const [toast, setToast] = useState(null);
 
-  // Create brands array with custom colors applied
-  const brandsWithCustom = useMemo(() => {
-    return BRANDS.map((brand) => {
-      if (brand.id === 'custom') {
-        return { ...brand, ...customColors };
-      }
-      return brand;
-    });
-  }, [customColors]);
+  // Create brands array with overrides applied and deleted brands filtered out
+  const brandsWithOverrides = useMemo(() => {
+    return BRANDS
+      .filter((brand) => !deletedBrands.has(brand.id))
+      .map((brand) => {
+        const override = brandOverrides[brand.id];
+        if (override) {
+          return { ...brand, ...override };
+        }
+        return brand;
+      });
+  }, [brandOverrides, deletedBrands]);
 
-  // Get the selected brand object (with custom colors if applicable)
+  // Get the selected brand object (with overrides if applicable)
   const selectedBrand = useMemo(() => {
-    return brandsWithCustom.find((b) => b.id === selectedBrandId);
-  }, [selectedBrandId, brandsWithCustom]);
+    return brandsWithOverrides.find((b) => b.id === selectedBrandId);
+  }, [selectedBrandId, brandsWithOverrides]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -149,10 +159,15 @@ function App() {
     localStorage.setItem(STORAGE_KEY, selectedBrandId);
   }, [selectedBrandId]);
 
-  // Persist custom colors to localStorage
+  // Persist brand overrides to localStorage
   useEffect(() => {
-    localStorage.setItem(CUSTOM_COLORS_KEY, JSON.stringify(customColors));
-  }, [customColors]);
+    localStorage.setItem(BRAND_OVERRIDES_KEY, JSON.stringify(brandOverrides));
+  }, [brandOverrides]);
+
+  // Persist deleted brands to localStorage
+  useEffect(() => {
+    localStorage.setItem(DELETED_BRANDS_KEY, JSON.stringify([...deletedBrands]));
+  }, [deletedBrands]);
 
   // Persist favorites to localStorage
   useEffect(() => {
@@ -172,13 +187,43 @@ function App() {
     updateLibraryCount();
   }, []);
 
-  // Handle custom color change
-  const handleCustomColorChange = useCallback((colorType, value) => {
-    setCustomColors((prev) => ({
+  // Handle brand color change (for any brand)
+  const handleBrandColorChange = useCallback((brandId, colorType, value) => {
+    setBrandOverrides((prev) => ({
       ...prev,
-      [colorType]: value,
+      [brandId]: {
+        ...(prev[brandId] || {}),
+        [colorType]: value,
+      },
     }));
   }, []);
+
+  // Handle brand deletion
+  const handleDeleteBrand = useCallback((brandId) => {
+    setDeletedBrands((prev) => {
+      const next = new Set(prev);
+      next.add(brandId);
+      return next;
+    });
+    // If the deleted brand was selected, select the first available brand
+    if (selectedBrandId === brandId) {
+      const remainingBrands = BRANDS.filter((b) => !deletedBrands.has(b.id) && b.id !== brandId);
+      if (remainingBrands.length > 0) {
+        setSelectedBrandId(remainingBrands[0].id);
+      }
+    }
+    showToast('Brand deleted', 'info');
+  }, [selectedBrandId, deletedBrands, showToast]);
+
+  // Handle brand reset to default
+  const handleResetBrand = useCallback((brandId) => {
+    setBrandOverrides((prev) => {
+      const next = { ...prev };
+      delete next[brandId];
+      return next;
+    });
+    showToast('Brand reset to default', 'success');
+  }, [showToast]);
 
   // Show toast notification
   const showToast = useCallback((message, type = 'success') => {
@@ -252,7 +297,7 @@ function App() {
         if (!icon.isPainted || !icon.paintedWith) return icon;
 
         // Get the brand that was used to paint this icon
-        const brand = brandsWithCustom.find((b) => b.id === icon.paintedWith);
+        const brand = brandsWithOverrides.find((b) => b.id === icon.paintedWith);
         if (!brand) return icon;
 
         const recolored = recolorSvg(icon.originalContent, brand, mode);
@@ -264,7 +309,7 @@ function App() {
         };
       })
     );
-  }, [brandsWithCustom]);
+  }, [brandsWithOverrides]);
 
   // Handle downloading a single icon
   const handleDownloadIcon = useCallback((icon) => {
@@ -400,14 +445,16 @@ function App() {
             <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-4">
               Select Brand Colors
             </h2>
-            {brandsWithCustom.map((brand) => (
+            {brandsWithOverrides.map((brand) => (
               <PaintBucket
                 key={brand.id}
                 brand={brand}
                 isSelected={selectedBrandId === brand.id}
-                isCustom={brand.id === 'custom'}
+                isEdited={!!brandOverrides[brand.id]}
                 onClick={() => handleBrandSelect(brand.id)}
-                onColorChange={brand.id === 'custom' ? handleCustomColorChange : undefined}
+                onColorChange={handleBrandColorChange}
+                onDelete={handleDeleteBrand}
+                onReset={handleResetBrand}
               />
             ))}
           </div>
