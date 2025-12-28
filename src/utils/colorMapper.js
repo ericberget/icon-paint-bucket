@@ -110,16 +110,34 @@ const getColorRole = (color) => {
  * Replace a color with the appropriate brand color
  * @param {string} color - The original color
  * @param {object} brand - Brand object with primary, secondary, accent
+ * @param {string} mode - Color mode: 'primary', 'secondary', or 'gradient'
+ * @param {string} gradientId - Optional gradient ID for gradient mode
  * @returns {string} The replaced color or original if preserved
  */
-const replaceColor = (color, brand) => {
+const replaceColor = (color, brand, mode = 'primary', gradientId = null) => {
   if (!color || shouldPreserve(color)) {
     return color;
   }
 
   const role = getColorRole(color);
-  if (role && brand[role]) {
-    return brand[role];
+  if (role) {
+    // For primary colors (black), use mode to determine replacement
+    if (role === 'primary') {
+      if (mode === 'gradient' && gradientId) {
+        return `url(#${gradientId})`;
+      } else if (mode === 'secondary') {
+        return brand.secondary;
+      } else {
+        return brand.primary;
+      }
+    }
+    // For secondary and accent, always use their respective brand colors
+    if (role === 'secondary' && brand.secondary) {
+      return brand.secondary;
+    }
+    if (role === 'accent' && brand.accent) {
+      return brand.accent;
+    }
   }
 
   return color;
@@ -129,12 +147,14 @@ const replaceColor = (color, brand) => {
  * Process inline style attribute and replace colors
  * @param {string} style - The style attribute value
  * @param {object} brand - Brand colors
+ * @param {string} mode - Color mode: 'primary', 'secondary', or 'gradient'
+ * @param {string} gradientId - Optional gradient ID for gradient mode
  * @returns {string} Updated style string
  */
-const processInlineStyle = (style, brand) => {
+const processInlineStyle = (style, brand, mode = 'primary', gradientId = null) => {
   if (!style) return style;
 
-  // Match color properties: fill, stroke, stop-color, color
+  // Match color properties: fill, stroke, stop-color, color, background, background-color
   const colorProps = ['fill', 'stroke', 'stop-color', 'color', 'background', 'background-color'];
 
   let updatedStyle = style;
@@ -143,7 +163,7 @@ const processInlineStyle = (style, brand) => {
     // Match property: value patterns
     const regex = new RegExp(`(${prop})\\s*:\\s*([^;]+)`, 'gi');
     updatedStyle = updatedStyle.replace(regex, (match, property, value) => {
-      const newColor = replaceColor(value.trim(), brand);
+      const newColor = replaceColor(value.trim(), brand, mode, gradientId);
       return `${property}:${newColor}`;
     });
   });
@@ -155,14 +175,40 @@ const processInlineStyle = (style, brand) => {
  * Main function to recolor an SVG string with brand colors
  * @param {string} svgString - The SVG content as a string
  * @param {object} brand - Brand object with primary, secondary, accent colors
+ * @param {string} mode - Color mode: 'primary', 'secondary', or 'gradient' (default: 'primary')
  * @returns {string} The recolored SVG string
  */
-export const recolorSvg = (svgString, brand) => {
+export const recolorSvg = (svgString, brand, mode = 'primary') => {
   if (!svgString || !brand) {
     return svgString;
   }
 
   let result = svgString;
+  
+  // Generate unique gradient ID for gradient mode
+  const gradientId = mode === 'gradient' ? `gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` : null;
+  
+  // Add gradient definition if in gradient mode
+  if (mode === 'gradient' && gradientId) {
+    // Check if <defs> already exists
+    const defsRegex = /<defs[^>]*>([\s\S]*?)<\/defs>/i;
+    const gradientDef = `
+    <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${brand.primary};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:${brand.secondary};stop-opacity:1" />
+    </linearGradient>`;
+    
+    if (defsRegex.test(result)) {
+      // Add gradient to existing <defs>
+      result = result.replace(defsRegex, (match, defsContent) => {
+        return `<defs>${defsContent}${gradientDef}</defs>`;
+      });
+    } else {
+      // Add <defs> after opening <svg> tag
+      const svgTagRegex = /(<svg[^>]*>)/i;
+      result = result.replace(svgTagRegex, `$1<defs>${gradientDef}</defs>`);
+    }
+  }
 
   // Process fill, stroke, and stop-color attributes
   const colorAttributes = ['fill', 'stroke', 'stop-color'];
@@ -171,7 +217,7 @@ export const recolorSvg = (svgString, brand) => {
     // Match attribute="value" patterns (handles both single and double quotes)
     const regex = new RegExp(`(${attr})\\s*=\\s*["']([^"']+)["']`, 'gi');
     result = result.replace(regex, (match, attribute, value) => {
-      const newColor = replaceColor(value, brand);
+      const newColor = replaceColor(value, brand, mode, gradientId);
       return `${attribute}="${newColor}"`;
     });
   });
@@ -179,7 +225,7 @@ export const recolorSvg = (svgString, brand) => {
   // Process inline styles
   const styleRegex = /style\s*=\s*["']([^"']+)["']/gi;
   result = result.replace(styleRegex, (match, styleContent) => {
-    const newStyle = processInlineStyle(styleContent, brand);
+    const newStyle = processInlineStyle(styleContent, brand, mode, gradientId);
     return `style="${newStyle}"`;
   });
 
@@ -188,12 +234,26 @@ export const recolorSvg = (svgString, brand) => {
   result = result.replace(styleBlockRegex, (match, cssContent) => {
     let newCss = cssContent;
 
-    // Replace colors in CSS
+    // Replace colors in CSS based on mode
     Object.entries(COLOR_MAPPINGS).forEach(([role, colors]) => {
       colors.forEach((color) => {
         const escapedColor = color.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const cssRegex = new RegExp(escapedColor, 'gi');
-        newCss = newCss.replace(cssRegex, brand[role]);
+        let replacement;
+        
+        if (role === 'primary') {
+          if (mode === 'gradient' && gradientId) {
+            replacement = `url(#${gradientId})`;
+          } else if (mode === 'secondary') {
+            replacement = brand.secondary;
+          } else {
+            replacement = brand.primary;
+          }
+        } else {
+          replacement = brand[role];
+        }
+        
+        newCss = newCss.replace(cssRegex, replacement);
       });
     });
 

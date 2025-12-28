@@ -144,6 +144,22 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* Slide in from right animation for drawer */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
 /* Gradient background animation */
 @keyframes gradientShift {
   0% { background-position: 0% 50%; }
