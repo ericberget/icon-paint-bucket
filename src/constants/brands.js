@@ -61,8 +61,17 @@ export const BRANDS = [
     bgLight: 'bg-orange-50',
   },
   {
+    id: 'jnj',
+    name: 'Johnson & Johnson',
+    primary: '#D51130',
+    secondary: '#1A1A1A',
+    accent: '#F5F5F5',
+    gradient: 'from-red-600 to-red-700',
+    bgLight: 'bg-red-50',
+  },
+  {
     id: 'custom',
-    name: 'Custom Brand',
+    name: 'New Brand',
     primary: '#1E40AF',
     secondary: '#64748B',
     accent: '#E2E8F0',

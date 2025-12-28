@@ -9,6 +9,7 @@ import DropZone from './components/DropZone';
 import PaintBucket from './components/PaintBucket';
 import IconGrid from './components/IconGrid';
 import LibraryDrawer from './components/LibraryDrawer';
+import LibraryView from './components/LibraryView';
 import { BRANDS, DEFAULT_BRAND_ID, getBrandById } from './constants/brands';
 import { recolorSvg } from './utils/colorMapper';
 import { processSvgFiles, downloadSvg, downloadAsZip } from './utils/fileHandler';
@@ -65,7 +66,10 @@ function App() {
   // State for workspace icons (current session)
   const [icons, setIcons] = useState([]);
   
-  // State for library drawer
+  // State for current view (workspace or library)
+  const [currentView, setCurrentView] = useState('workspace');
+  
+  // State for library drawer (legacy, keeping for now)
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [libraryCount, setLibraryCount] = useState(0);
 
@@ -187,6 +191,11 @@ function App() {
     updateLibraryCount();
   }, []);
 
+  // Show toast notification
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+  }, []);
+
   // Handle brand color change (for any brand)
   const handleBrandColorChange = useCallback((brandId, colorType, value) => {
     setBrandOverrides((prev) => ({
@@ -225,11 +234,6 @@ function App() {
     showToast('Brand reset to default', 'success');
   }, [showToast]);
 
-  // Show toast notification
-  const showToast = useCallback((message, type = 'success') => {
-    setToast({ message, type });
-  }, []);
-
   // Handle brand selection
   const handleBrandSelect = useCallback((brandId) => {
     setSelectedBrandId(brandId);
@@ -238,7 +242,14 @@ function App() {
   }, [showToast]);
 
   // Handle file uploads
-  const handleFilesAdded = useCallback(async (files) => {
+  const handleFilesAdded = useCallback(async (files, uploadOptions = {}) => {
+    // Handle both old format (array of tags) and new format (options object)
+    const options = Array.isArray(uploadOptions) 
+      ? { tags: uploadOptions, isCustomBrand: false, customBrandId: null }
+      : uploadOptions;
+    
+    const { tags = [], isCustomBrand = false, customBrandId = null } = options;
+    
     try {
       const newIcons = await processSvgFiles(files);
       if (newIcons.length === 0) {
@@ -246,20 +257,34 @@ function App() {
         return;
       }
       
+      // Apply tags and custom brand info to new icons
+      const iconsWithMetadata = newIcons.map((icon) => ({
+        ...icon,
+        tags: tags.length > 0 ? [...tags] : [],
+        isCustomBrand: isCustomBrand,
+        customBrandId: isCustomBrand ? customBrandId : null,
+        // Custom brand icons are pre-painted and locked
+        isPainted: isCustomBrand,
+        paintedWith: isCustomBrand ? customBrandId : null,
+        isLocked: isCustomBrand,
+      }));
+      
       // Add to workspace
-      setIcons((prev) => [...prev, ...newIcons]);
+      setIcons((prev) => [...prev, ...iconsWithMetadata]);
       
       // Also save to library (IndexedDB)
       const existingIcons = await loadIcons();
       const existingIds = new Set(existingIcons.map((i) => i.id));
-      const uniqueNewIcons = newIcons.filter((icon) => !existingIds.has(icon.id));
+      const uniqueNewIcons = iconsWithMetadata.filter((icon) => !existingIds.has(icon.id));
       
       if (uniqueNewIcons.length > 0) {
         await saveIcons([...existingIcons, ...uniqueNewIcons]);
         setLibraryCount(existingIcons.length + uniqueNewIcons.length);
       }
       
-      showToast(`Added ${newIcons.length} icon${newIcons.length > 1 ? 's' : ''}`, 'success');
+      const tagMsg = tags.length > 0 ? ` with ${tags.length} tag${tags.length > 1 ? 's' : ''}` : '';
+      const brandMsg = isCustomBrand ? ' (Custom Brand - locked)' : '';
+      showToast(`Added ${newIcons.length} icon${newIcons.length > 1 ? 's' : ''}${tagMsg}${brandMsg}`, 'success');
     } catch (error) {
       console.error('Error processing files:', error);
       showToast('Error processing files', 'error');
@@ -406,17 +431,56 @@ function App() {
     showToast('Cleared workspace', 'info');
   }, [showToast]);
 
-  return (
-    <div className="min-h-screen bg-[#0A0A0A] relative overflow-hidden">
-      {/* Animated background orbs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute top-1/2 -right-32 w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
-        <div className="absolute -bottom-32 left-1/3 w-[700px] h-[700px] bg-blue-600/10 rounded-full blur-[150px]" />
-      </div>
+  // Handle switching back from library view
+  const handleBackFromLibrary = useCallback(() => {
+    setCurrentView('workspace');
+    // Refresh library count
+    loadIcons().then((icons) => setLibraryCount(icons.length));
+  }, []);
 
-      {/* Grid pattern overlay */}
-      <div className="fixed inset-0 grid-pattern opacity-20 pointer-events-none" />
+  // Handle adding icon from library to workspace
+  const handleAddFromLibraryView = useCallback((icon) => {
+    // Check if already in workspace
+    const exists = icons.some((i) => i.id === icon.id);
+    if (exists) {
+      showToast(`${icon.name} is already in workspace`, 'info');
+      return;
+    }
+    
+    // Add to workspace (use original content, not painted)
+    setIcons((prev) => [...prev, {
+      ...icon,
+      currentContent: icon.originalContent,
+      isPainted: false,
+      paintedWith: null,
+      colorMode: null,
+    }]);
+    
+    setCurrentView('workspace');
+    showToast(`Added ${icon.name} to workspace`, 'success');
+  }, [icons, showToast]);
+
+  // Render Library View if in library mode
+  if (currentView === 'library') {
+    return (
+      <LibraryView
+        onBack={handleBackFromLibrary}
+        onAddToWorkspace={handleAddFromLibraryView}
+        favorites={favorites}
+        onToggleFavorite={handleToggleFavorite}
+      />
+    );
+  }
+
+  return (
+    <div 
+      className="min-h-screen relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/bg.jpg)',
+        backgroundRepeat: 'repeat',
+      }}
+    >
+
 
       {/* Toast notifications */}
       {toast && (
@@ -429,7 +493,13 @@ function App() {
 
       <div className="relative flex flex-col lg:flex-row min-h-screen">
         {/* Left sidebar - Paint Buckets */}
-        <aside className="w-full lg:w-96 p-6 bg-gray-950/60 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-gray-800 lg:min-h-screen">
+        <aside 
+          className="w-full lg:w-96 p-6 border-b lg:border-b-0 lg:border-r border-gray-800 lg:min-h-screen"
+          style={{
+            backgroundImage: 'url(/bg.jpg)',
+            backgroundRepeat: 'repeat',
+          }}
+        >
           {/* Logo */}
           <div className="mb-8">
             <img
@@ -497,8 +567,8 @@ function App() {
             <div className="flex gap-2 flex-wrap">
               {/* Library button - always visible */}
               <button
-                onClick={() => setIsLibraryOpen(true)}
-                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white font-medium text-sm transition-all duration-200 flex items-center gap-2"
+                onClick={() => setCurrentView('library')}
+                className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-neutral-600 text-neutral-300 hover:text-white font-medium text-sm transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -543,7 +613,7 @@ function App() {
 
           {/* Drop zone (always visible for adding more files) */}
           <div className={icons.length > 0 ? 'mb-6' : ''}>
-            <DropZone onFilesAdded={handleFilesAdded} />
+            <DropZone onFilesAdded={handleFilesAdded} brands={brandsWithOverrides} />
           </div>
 
           {/* Filter bar */}

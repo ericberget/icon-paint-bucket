@@ -107,10 +107,84 @@ const getColorRole = (color) => {
 };
 
 /**
+ * Parse a color string to RGB values
+ * @param {string} color - The color to parse (hex or rgb format)
+ * @returns {{r: number, g: number, b: number}|null} RGB values or null if unparseable
+ */
+const parseColorToRgb = (color) => {
+  if (!color) return null;
+  const normalized = normalizeColor(color);
+  
+  // Handle hex colors
+  if (normalized.startsWith('#')) {
+    let hex = normalized.slice(1);
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('');
+    }
+    if (hex.length === 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    }
+  }
+  
+  // Handle rgb() colors
+  const rgbMatch = normalized.match(/rgb\((\d+),(\d+),(\d+)\)/);
+  if (rgbMatch) {
+    return {
+      r: parseInt(rgbMatch[1], 10),
+      g: parseInt(rgbMatch[2], 10),
+      b: parseInt(rgbMatch[3], 10),
+    };
+  }
+  
+  return null;
+};
+
+/**
+ * Check if a color is chromatic (has color, not grayscale)
+ * @param {string} color - The color to check
+ * @returns {boolean} True if color is chromatic
+ */
+const isChromatic = (color) => {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return false;
+  
+  // A color is chromatic if the RGB values differ significantly
+  const maxDiff = Math.max(
+    Math.abs(rgb.r - rgb.g),
+    Math.abs(rgb.g - rgb.b),
+    Math.abs(rgb.r - rgb.b)
+  );
+  
+  // If any channel differs by more than 10, it's not grayscale
+  return maxDiff > 10;
+};
+
+/**
+ * Check if a color is dark (for distinguishing outlines from fills)
+ * @param {string} color - The color to check
+ * @returns {boolean} True if color is dark
+ */
+const isDarkColor = (color) => {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return false;
+  
+  // Calculate luminance (simplified)
+  const luminance = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114);
+  return luminance < 80; // Dark threshold
+};
+
+// Dark gray color for duotone outline
+const DUOTONE_OUTLINE = '#2D2D2D';
+
+/**
  * Replace a color with the appropriate brand color
  * @param {string} color - The original color
  * @param {object} brand - Brand object with primary, secondary, accent
- * @param {string} mode - Color mode: 'primary', 'secondary', or 'gradient'
+ * @param {string} mode - Color mode: 'primary', 'secondary', 'gradient', 'duo-primary', 'duo-secondary'
  * @param {string} gradientId - Optional gradient ID for gradient mode
  * @returns {string} The replaced color or original if preserved
  */
@@ -120,6 +194,39 @@ const replaceColor = (color, brand, mode = 'primary', gradientId = null) => {
   }
 
   const role = getColorRole(color);
+  
+  // Duotone modes: dark outline + colored accent
+  if (mode === 'duo-primary' || mode === 'duo-secondary') {
+    const accentColor = mode === 'duo-primary' ? brand.primary : brand.secondary;
+    
+    // Check if it's in our predefined roles
+    if (role) {
+      // Primary colors (black/dark) → dark gray outline
+      if (role === 'primary') {
+        return DUOTONE_OUTLINE;
+      }
+      // Secondary (gray) and accent (light gray) → brand accent color
+      if (role === 'secondary' || role === 'accent') {
+        return accentColor;
+      }
+    }
+    
+    // For colors NOT in our mapping, check if chromatic or dark
+    // Chromatic colors (any hue) → accent color
+    if (isChromatic(color)) {
+      return accentColor;
+    }
+    
+    // Dark non-chromatic colors → dark outline
+    if (isDarkColor(color)) {
+      return DUOTONE_OUTLINE;
+    }
+    
+    // Everything else that's not preserved → accent
+    return accentColor;
+  }
+  
+  // Standard modes
   if (role) {
     // For primary colors (black), use mode to determine replacement
     if (role === 'primary') {
@@ -138,6 +245,14 @@ const replaceColor = (color, brand, mode = 'primary', gradientId = null) => {
     if (role === 'accent' && brand.accent) {
       return brand.accent;
     }
+  }
+  
+  // For standard modes, also replace chromatic colors as accent
+  if (isChromatic(color)) {
+    if (mode === 'secondary') {
+      return brand.secondary;
+    }
+    return brand.primary;
   }
 
   return color;
@@ -241,7 +356,17 @@ export const recolorSvg = (svgString, brand, mode = 'primary') => {
         const cssRegex = new RegExp(escapedColor, 'gi');
         let replacement;
         
-        if (role === 'primary') {
+        // Duotone modes
+        if (mode === 'duo-primary' || mode === 'duo-secondary') {
+          const accentColor = mode === 'duo-primary' ? brand.primary : brand.secondary;
+          if (role === 'primary') {
+            replacement = DUOTONE_OUTLINE;
+          } else {
+            replacement = accentColor;
+          }
+        }
+        // Standard modes
+        else if (role === 'primary') {
           if (mode === 'gradient' && gradientId) {
             replacement = `url(#${gradientId})`;
           } else if (mode === 'secondary') {
@@ -255,6 +380,34 @@ export const recolorSvg = (svgString, brand, mode = 'primary') => {
         
         newCss = newCss.replace(cssRegex, replacement);
       });
+    });
+    
+    // Also catch any hex colors not in our mapping (chromatic colors)
+    const hexColorRegex = /#([0-9a-fA-F]{3}){1,2}\b/g;
+    newCss = newCss.replace(hexColorRegex, (hexColor) => {
+      // Skip preserved colors
+      if (shouldPreserve(hexColor)) return hexColor;
+      // Skip colors we already processed
+      if (getColorRole(hexColor)) return hexColor;
+      
+      const accentColor = mode === 'duo-primary' ? brand.primary : 
+                         mode === 'duo-secondary' ? brand.secondary :
+                         mode === 'secondary' ? brand.secondary : brand.primary;
+      
+      // For duotone, check if dark or chromatic
+      if (mode === 'duo-primary' || mode === 'duo-secondary') {
+        if (isDarkColor(hexColor) && !isChromatic(hexColor)) {
+          return DUOTONE_OUTLINE;
+        }
+        return accentColor;
+      }
+      
+      // For standard modes, replace chromatic colors
+      if (isChromatic(hexColor)) {
+        return accentColor;
+      }
+      
+      return hexColor;
     });
 
     return match.replace(cssContent, newCss);

@@ -48,8 +48,8 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
           transition-all duration-300 ease-out
           group
           ${isSelected
-            ? 'bg-gray-800 border-2 border-yellow-400 shadow-lg shadow-yellow-500/25'
-            : 'bg-gray-900/50 border border-gray-800 hover:bg-gray-800/50 hover:border-gray-700'
+            ? 'bg-neutral-800 border-2 border-yellow-400 shadow-lg shadow-yellow-500/25'
+            : 'bg-neutral-900/50 border border-neutral-700 hover:bg-neutral-800/50 hover:border-neutral-600'
           }
         `}
       >
@@ -91,7 +91,7 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
               p-1.5 rounded-lg transition-all duration-200 cursor-pointer
               ${isEditing
                 ? 'bg-yellow-500/20 text-yellow-400'
-                : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-white'
+                : 'bg-neutral-700/50 text-neutral-400 hover:bg-neutral-700 hover:text-white'
               }
             `}
             title={isEditing ? 'Close editor' : 'Edit colors'}
@@ -146,7 +146,7 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
 
       {/* Color picker panel (editing mode) */}
       {isEditing && (
-        <div className="mt-2 p-3 bg-gray-800 border border-gray-700 rounded-xl space-y-3 animate-fade-in">
+        <div className="mt-2 p-3 bg-neutral-800 border border-neutral-700 rounded-xl space-y-3 animate-fade-in">
           {/* Primary color picker */}
           <div className="flex items-center gap-3">
             <label className="text-[10px] text-gray-400 uppercase tracking-wide font-medium w-16">
@@ -165,7 +165,7 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
                 value={brand.primary}
                 onChange={(e) => handleColorChange('primary', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
+                className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded text-xs text-neutral-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
                 placeholder="#000000"
               />
             </div>
@@ -189,7 +189,7 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
                 value={brand.secondary}
                 onChange={(e) => handleColorChange('secondary', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
+                className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded text-xs text-neutral-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
                 placeholder="#666666"
               />
             </div>
@@ -213,19 +213,19 @@ const PaintBucket = ({ brand, isSelected, isEdited, onClick, onColorChange, onDe
                 value={brand.accent}
                 onChange={(e) => handleColorChange('accent', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
+                className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded text-xs text-neutral-300 font-mono focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
                 placeholder="#CCCCCC"
               />
             </div>
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2 pt-2 border-t border-gray-700">
+          <div className="flex gap-2 pt-2 border-t border-neutral-700">
             {/* Reset button - only show if edited */}
             {isEdited && (
               <button
                 onClick={handleReset}
-                className="flex-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1"
+                className="flex-1 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1"
                 title="Reset to default colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

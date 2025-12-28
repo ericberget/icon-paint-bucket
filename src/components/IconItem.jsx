@@ -82,14 +82,31 @@ const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemo
       {icon.isPainted && paintedBrand && (
         <div className="absolute top-2 left-2 z-10 flex items-center gap-1 animate-fade-in">
           <div
-            className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-lg border"
+            className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-lg border flex items-center gap-1"
             style={{
               backgroundColor: `${paintedBrand.primary}20`,
               borderColor: `${paintedBrand.primary}40`,
               color: paintedBrand.primary,
             }}
           >
+            {icon.isLocked && (
+              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 17a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z" />
+              </svg>
+            )}
             {paintedBrand.name.split(' ')[0]}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Brand indicator for unpainted locked icons */}
+      {icon.isLocked && !paintedBrand && (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 animate-fade-in">
+          <div className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-lg border flex items-center gap-1 bg-purple-500/20 border-purple-500/40 text-purple-400">
+            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 17a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z" />
+            </svg>
+            Custom
           </div>
         </div>
       )}
@@ -113,14 +130,29 @@ const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemo
         </svg>
       </button>
 
-      {/* Icon preview - clickable to paint when not painted, clickable to cycle modes when painted */}
-      {icon.isPainted ? (
+      {/* Icon preview - locked icons just display, painted can cycle, unpainted can paint */}
+      {icon.isLocked ? (
+        // Locked icons - just display, no interaction
+        <div className="w-full aspect-square p-6 flex items-center justify-center bg-white relative">
+          <img
+            src={previewUrl}
+            alt={icon.name}
+            className="w-full h-full object-contain"
+          />
+          {/* Locked overlay indicator */}
+          <div className="absolute bottom-2 right-2 text-purple-400/60">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 17a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z" />
+            </svg>
+          </div>
+        </div>
+      ) : icon.isPainted ? (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            // Cycle through modes: primary → secondary → gradient → primary
-            const modes = ['primary', 'secondary', 'gradient'];
+            // Cycle through modes: primary → secondary → duo-primary → duo-secondary → primary
+            const modes = ['primary', 'secondary', 'duo-primary', 'duo-secondary'];
             const currentIndex = modes.indexOf(colorMode);
             const nextIndex = (currentIndex + 1) % modes.length;
             handleModeChange(modes[nextIndex]);
@@ -184,59 +216,83 @@ const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemo
           {icon.name}
         </p>
 
-        {/* Color mode toggle - only show when painted */}
-        {icon.isPainted && paintedBrand && (
-          <div className="flex gap-1 mb-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleModeChange('primary');
-              }}
-              className={`flex-1 px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                colorMode === 'primary'
-                  ? 'text-gray-900'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-              }`}
-              style={colorMode === 'primary' ? { backgroundColor: paintedBrand.primary } : {}}
-              title="Primary color"
-            >
-              Primary
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleModeChange('secondary');
-              }}
-              className={`flex-1 px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                colorMode === 'secondary'
-                  ? 'text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-              }`}
-              style={colorMode === 'secondary' ? { backgroundColor: paintedBrand.secondary } : {}}
-              title="Secondary color"
-            >
-              Secondary
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleModeChange('gradient');
-              }}
-              className={`flex-1 px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                colorMode === 'gradient'
-                  ? 'text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-              }`}
-              style={colorMode === 'gradient' ? {
-                background: `linear-gradient(135deg, ${paintedBrand.primary} 0%, ${paintedBrand.secondary} 100%)`
-              } : {}}
-              title="Gradient"
-            >
-              GR
-            </button>
+        {/* Color mode toggle - only show when painted and not locked */}
+        {icon.isPainted && paintedBrand && !icon.isLocked && (
+          <div className="flex flex-col gap-1 mb-2">
+            {/* Row 1: Standard modes */}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleModeChange('primary');
+                }}
+                className={`flex-1 px-1.5 py-1 rounded text-[9px] font-medium transition-all ${
+                  colorMode === 'primary'
+                    ? 'text-gray-900'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                }`}
+                style={colorMode === 'primary' ? { backgroundColor: paintedBrand.primary } : {}}
+                title="Primary color"
+              >
+                Pri
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleModeChange('secondary');
+                }}
+                className={`flex-1 px-1.5 py-1 rounded text-[9px] font-medium transition-all ${
+                  colorMode === 'secondary'
+                    ? 'text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                }`}
+                style={colorMode === 'secondary' ? { backgroundColor: paintedBrand.secondary } : {}}
+                title="Secondary color"
+              >
+                Sec
+              </button>
+            </div>
+            {/* Row 2: Duotone modes (dark outline + accent fill) */}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleModeChange('duo-primary');
+                }}
+                className={`flex-1 px-1.5 py-1 rounded text-[9px] font-medium transition-all ${
+                  colorMode === 'duo-primary'
+                    ? 'text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                }`}
+                style={colorMode === 'duo-primary' ? { 
+                  background: `linear-gradient(90deg, #2D2D2D 50%, ${paintedBrand.primary} 50%)`
+                } : {}}
+                title="Duotone: Dark outline + Primary accent"
+              >
+                Duo-P
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleModeChange('duo-secondary');
+                }}
+                className={`flex-1 px-1.5 py-1 rounded text-[9px] font-medium transition-all ${
+                  colorMode === 'duo-secondary'
+                    ? 'text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                }`}
+                style={colorMode === 'duo-secondary' ? { 
+                  background: `linear-gradient(90deg, #2D2D2D 50%, ${paintedBrand.secondary} 50%)`
+                } : {}}
+                title="Duotone: Dark outline + Secondary accent"
+              >
+                Duo-S
+              </button>
+            </div>
           </div>
         )}
 
