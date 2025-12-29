@@ -28,6 +28,7 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
   const [brandFilter, setBrandFilter] = useState('all');
   const [styleFilter, setStyleFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   
   // Tag editing
   const [editingIconId, setEditingIconId] = useState(null);
@@ -52,6 +53,11 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
   // Filter and sort icons
   const filteredIcons = useMemo(() => {
     let result = [...libraryIcons];
+
+    // Favorites filter
+    if (showFavoritesOnly) {
+      result = result.filter((icon) => favorites?.has(icon.id));
+    }
 
     // Search filter
     if (searchQuery.trim()) {
@@ -96,7 +102,7 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
     }
 
     return result;
-  }, [libraryIcons, searchQuery, brandFilter, styleFilter, sortBy, favorites]);
+  }, [libraryIcons, searchQuery, brandFilter, styleFilter, sortBy, favorites, showFavoritesOnly]);
 
   // Handle adding tag to icon
   const handleAddTag = async (iconId, tagId) => {
@@ -200,6 +206,28 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
       <div className="sticky top-[73px] z-10 border-b border-neutral-800 bg-neutral-900/90 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex flex-wrap items-center gap-4">
+            {/* Favorites toggle - prominent button */}
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                showFavoritesOnly
+                  ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25'
+                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-pink-400 border border-neutral-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill={showFavoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              Favorites
+              {stats.favorites > 0 && (
+                <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                  showFavoritesOnly ? 'bg-white/20' : 'bg-pink-500/20 text-pink-400'
+                }`}>
+                  {stats.favorites}
+                </span>
+              )}
+            </button>
+
             {/* Search */}
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
