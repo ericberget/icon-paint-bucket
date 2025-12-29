@@ -435,8 +435,56 @@ export const svgToBlob = (svgString) => {
   return new Blob([svgString], { type: 'image/svg+xml' });
 };
 
+/**
+ * Adjust stroke width in an SVG by a multiplier
+ * @param {string} svgString - The SVG content as a string
+ * @param {number} multiplier - Stroke width multiplier (e.g., 0.5 = thinner, 2 = thicker)
+ * @returns {string} The SVG with adjusted stroke widths
+ */
+export const adjustStrokeWidth = (svgString, multiplier = 1) => {
+  if (!svgString || multiplier === 1) return svgString;
+
+  let result = svgString;
+
+  // Handle stroke-width attributes
+  result = result.replace(/stroke-width\s*=\s*["']([^"']+)["']/gi, (match, value) => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return match;
+    return `stroke-width="${(numValue * multiplier).toFixed(2)}"`;
+  });
+
+  // Handle inline styles with stroke-width
+  result = result.replace(/style\s*=\s*["']([^"']+)["']/gi, (match, styleContent) => {
+    const newStyle = styleContent.replace(
+      /stroke-width\s*:\s*([^;}"']+)/gi,
+      (m, val) => {
+        const numValue = parseFloat(val);
+        if (isNaN(numValue)) return m;
+        return `stroke-width: ${(numValue * multiplier).toFixed(2)}`;
+      }
+    );
+    return `style="${newStyle}"`;
+  });
+
+  // Handle <style> blocks
+  result = result.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, cssContent) => {
+    const newCss = cssContent.replace(
+      /stroke-width\s*:\s*([^;}"']+)/gi,
+      (m, val) => {
+        const numValue = parseFloat(val);
+        if (isNaN(numValue)) return m;
+        return `stroke-width: ${(numValue * multiplier).toFixed(2)}`;
+      }
+    );
+    return match.replace(cssContent, newCss);
+  });
+
+  return result;
+};
+
 export default {
   recolorSvg,
   svgToDataUrl,
   svgToBlob,
+  adjustStrokeWidth,
 };

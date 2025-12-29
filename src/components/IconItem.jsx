@@ -8,7 +8,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { svgToDataUrl } from '../utils/colorMapper';
 import { getBrandById } from '../constants/brands';
 
-const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemove, onColorModeChange, onToggleFavorite }) => {
+const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemove, onColorModeChange, onToggleFavorite, onStrokeWidthChange }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
 
@@ -215,6 +215,27 @@ const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemo
         <p className="text-gray-400 text-xs font-medium truncate mb-2" title={icon.name}>
           {icon.name}
         </p>
+
+        {/* Stroke width slider - show for all non-locked icons */}
+        {!icon.isLocked && onStrokeWidthChange && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] text-gray-500 w-10">Stroke</span>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.25"
+              value={icon.strokeMultiplier || 1}
+              onChange={(e) => {
+                e.stopPropagation();
+                onStrokeWidthChange(icon.id, parseFloat(e.target.value));
+              }}
+              className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+              title={`Stroke width: ${icon.strokeMultiplier || 1}x`}
+            />
+            <span className="text-[10px] text-gray-400 w-6 text-right">{icon.strokeMultiplier || 1}x</span>
+          </div>
+        )}
 
         {/* Color mode toggle - only show when painted and not locked */}
         {icon.isPainted && paintedBrand && !icon.isLocked && (

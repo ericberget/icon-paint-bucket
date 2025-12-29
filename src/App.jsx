@@ -11,7 +11,7 @@ import IconGrid from './components/IconGrid';
 import LibraryDrawer from './components/LibraryDrawer';
 import LibraryView from './components/LibraryView';
 import { BRANDS, DEFAULT_BRAND_ID, getBrandById } from './constants/brands';
-import { recolorSvg } from './utils/colorMapper';
+import { recolorSvg, adjustStrokeWidth } from './utils/colorMapper';
 import { processSvgFiles, downloadSvg, downloadAsZip } from './utils/fileHandler';
 import { saveIcons, loadIcons } from './utils/iconStorage';
 
@@ -392,11 +392,15 @@ function App() {
       prev.map((icon) => {
         if (icon.id !== iconId) return icon;
 
-        const recolored = recolorSvg(icon.originalContent, selectedBrand, 'primary');
+        let content = recolorSvg(icon.originalContent, selectedBrand, 'primary');
+        // Preserve stroke width if previously adjusted
+        if (icon.strokeMultiplier && icon.strokeMultiplier !== 1) {
+          content = adjustStrokeWidth(content, icon.strokeMultiplier);
+        }
 
         return {
           ...icon,
-          currentContent: recolored,
+          currentContent: content,
           paintedWith: selectedBrand.id,
           isPainted: true,
           colorMode: 'primary',
@@ -418,12 +422,45 @@ function App() {
         const brand = brandsWithOverrides.find((b) => b.id === icon.paintedWith);
         if (!brand) return icon;
 
-        const recolored = recolorSvg(icon.originalContent, brand, mode);
+        let content = recolorSvg(icon.originalContent, brand, mode);
+        // Preserve stroke width if previously adjusted
+        if (icon.strokeMultiplier && icon.strokeMultiplier !== 1) {
+          content = adjustStrokeWidth(content, icon.strokeMultiplier);
+        }
 
         return {
           ...icon,
-          currentContent: recolored,
+          currentContent: content,
           colorMode: mode,
+        };
+      })
+    );
+  }, [brandsWithOverrides]);
+
+  // Handle stroke width change for an icon
+  const handleStrokeWidthChange = useCallback((iconId, multiplier) => {
+    setIcons((prev) =>
+      prev.map((icon) => {
+        if (icon.id !== iconId) return icon;
+
+        // Start from original content
+        let content = icon.originalContent;
+
+        // If painted, apply color first
+        if (icon.isPainted && icon.paintedWith) {
+          const brand = brandsWithOverrides.find((b) => b.id === icon.paintedWith);
+          if (brand) {
+            content = recolorSvg(content, brand, icon.colorMode || 'primary');
+          }
+        }
+
+        // Apply stroke width adjustment
+        content = adjustStrokeWidth(content, multiplier);
+
+        return {
+          ...icon,
+          currentContent: content,
+          strokeMultiplier: multiplier,
         };
       })
     );
@@ -876,6 +913,7 @@ function App() {
             onRemove={handleRemoveIcon}
             onColorModeChange={handleColorModeChange}
             onToggleFavorite={handleToggleFavorite}
+            onStrokeWidthChange={handleStrokeWidthChange}
           />
         </main>
       </div>

@@ -5,7 +5,7 @@
 
 import IconItem from './IconItem';
 
-const IconGrid = ({ icons, selectedBrand, favorites, onPaint, onDownload, onRemove, onColorModeChange, onToggleFavorite }) => {
+const IconGrid = ({ icons, selectedBrand, favorites, onPaint, onDownload, onRemove, onColorModeChange, onToggleFavorite, onStrokeWidthChange }) => {
   // Show empty state if no icons
   if (icons.length === 0) {
     return null;
@@ -30,6 +30,7 @@ const IconGrid = ({ icons, selectedBrand, favorites, onPaint, onDownload, onRemo
               onRemove={onRemove}
               onColorModeChange={onColorModeChange}
               onToggleFavorite={onToggleFavorite}
+              onStrokeWidthChange={onStrokeWidthChange}
             />
           </div>
         ))}
