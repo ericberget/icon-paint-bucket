@@ -891,7 +891,7 @@ function App() {
                 onClick={() => setFilterView('favorites')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                   filterView === 'favorites'
-                    ? 'bg-pink-500 text-white'
+                    ? 'bg-sky-500 text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
                 }`}
               >

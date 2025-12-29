@@ -120,8 +120,8 @@ const IconItem = ({ icon, selectedBrand, isFavorite, onPaint, onDownload, onRemo
         }}
         className={`absolute top-2 right-2 z-10 p-1 rounded-full transition-all duration-200 ${
           isFavorite
-            ? 'text-pink-400 opacity-80 hover:opacity-100'
-            : 'text-gray-400/40 hover:text-pink-400/60 opacity-0 group-hover:opacity-100'
+            ? 'text-sky-400 opacity-80 hover:opacity-100'
+            : 'text-gray-400/40 hover:text-sky-400/60 opacity-0 group-hover:opacity-100'
         }`}
         title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >

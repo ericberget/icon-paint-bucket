@@ -195,7 +195,7 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
                 <span className="text-yellow-400 font-semibold">{stats.painted}</span> painted
               </span>
               <span className="text-neutral-400">
-                <span className="text-pink-400 font-semibold">{stats.favorites}</span> favorites
+                <span className="text-sky-400 font-semibold">{stats.favorites}</span> favorites
               </span>
             </div>
           </div>
@@ -211,8 +211,8 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                 showFavoritesOnly
-                  ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25'
-                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-pink-400 border border-neutral-700'
+                  ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
+                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-sky-400 border border-neutral-700'
               }`}
             >
               <svg className="w-4 h-4" fill={showFavoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -221,7 +221,7 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
               Favorites
               {stats.favorites > 0 && (
                 <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                  showFavoritesOnly ? 'bg-white/20' : 'bg-pink-500/20 text-pink-400'
+                  showFavoritesOnly ? 'bg-white/20' : 'bg-sky-500/20 text-sky-400'
                 }`}>
                   {stats.favorites}
                 </span>
@@ -355,8 +355,8 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
                     onClick={() => onToggleFavorite?.(icon.id)}
                     className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
                       isFav
-                        ? 'text-pink-400'
-                        : 'text-neutral-400/50 opacity-0 group-hover:opacity-100 hover:text-pink-400'
+                        ? 'text-sky-400'
+                        : 'text-neutral-400/50 opacity-0 group-hover:opacity-100 hover:text-sky-400'
                     }`}
                   >
                     <svg className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
