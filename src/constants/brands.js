@@ -69,15 +69,6 @@ export const BRANDS = [
     gradient: 'from-red-600 to-red-700',
     bgLight: 'bg-red-50',
   },
-  {
-    id: 'custom',
-    name: 'New Brand',
-    primary: '#1E40AF',
-    secondary: '#64748B',
-    accent: '#E2E8F0',
-    gradient: 'from-blue-600 to-blue-800',
-    bgLight: 'bg-blue-50',
-  },
 ];
 
 /**

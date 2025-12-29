@@ -20,6 +20,8 @@ const STORAGE_KEY = 'icon-paint-bucket-brand';
 const BRAND_OVERRIDES_KEY = 'icon-paint-bucket-brand-overrides';
 const DELETED_BRANDS_KEY = 'icon-paint-bucket-deleted-brands';
 const FAVORITES_KEY = 'icon-paint-bucket-favorites';
+const CUSTOM_BRANDS_KEY = 'icon-paint-bucket-custom-brands';
+const CUSTOM_COLOR_KEY = 'icon-paint-bucket-custom-color';
 
 // Toast notification component
 const Toast = ({ message, type = 'success', onClose }) => {
@@ -121,12 +123,38 @@ function App() {
     return new Set();
   });
 
+  // State for custom color (quick one-off color picker)
+  const [customColor, setCustomColor] = useState(() => {
+    return localStorage.getItem(CUSTOM_COLOR_KEY) || '#FFFFFF';
+  });
+  const [isCustomColorSelected, setIsCustomColorSelected] = useState(false);
+
+  // State for user-created brands (saved to localStorage)
+  const [customBrands, setCustomBrands] = useState(() => {
+    const saved = localStorage.getItem(CUSTOM_BRANDS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // State for "Add New Brand" form
+  const [showAddBrandForm, setShowAddBrandForm] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandPrimary, setNewBrandPrimary] = useState('#3B82F6');
+  const [newBrandSecondary, setNewBrandSecondary] = useState('#1E3A5F');
+  const [newBrandAccent, setNewBrandAccent] = useState('#E5E7EB');
+
   // Toast notifications
   const [toast, setToast] = useState(null);
 
-  // Create brands array with overrides applied and deleted brands filtered out
+  // Create brands array with overrides applied, deleted brands filtered out, and custom brands added
   const brandsWithOverrides = useMemo(() => {
-    return BRANDS
+    const defaultBrands = BRANDS
       .filter((brand) => !deletedBrands.has(brand.id))
       .map((brand) => {
         const override = brandOverrides[brand.id];
@@ -135,12 +163,25 @@ function App() {
         }
         return brand;
       });
-  }, [brandOverrides, deletedBrands]);
+    
+    // Add custom brands at the end
+    return [...defaultBrands, ...customBrands];
+  }, [brandOverrides, deletedBrands, customBrands]);
 
   // Get the selected brand object (with overrides if applicable)
+  // If custom color is selected, create a virtual brand for it
   const selectedBrand = useMemo(() => {
+    if (isCustomColorSelected) {
+      return {
+        id: 'custom-color',
+        name: 'Custom',
+        primary: customColor,
+        secondary: customColor,
+        accent: '#F5F5F5',
+      };
+    }
     return brandsWithOverrides.find((b) => b.id === selectedBrandId);
-  }, [selectedBrandId, brandsWithOverrides]);
+  }, [selectedBrandId, brandsWithOverrides, isCustomColorSelected, customColor]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -177,6 +218,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
   }, [favorites]);
+
+  // Persist custom color to localStorage
+  useEffect(() => {
+    localStorage.setItem(CUSTOM_COLOR_KEY, customColor);
+  }, [customColor]);
+
+  // Persist custom brands to localStorage
+  useEffect(() => {
+    localStorage.setItem(CUSTOM_BRANDS_KEY, JSON.stringify(customBrands));
+  }, [customBrands]);
 
   // Load library count on app start
   useEffect(() => {
@@ -237,9 +288,51 @@ function App() {
   // Handle brand selection
   const handleBrandSelect = useCallback((brandId) => {
     setSelectedBrandId(brandId);
-    const brand = getBrandById(brandId);
-    showToast(`Selected ${brand.name}`, 'info');
-  }, [showToast]);
+    setIsCustomColorSelected(false);
+    const brand = brandsWithOverrides.find((b) => b.id === brandId) || getBrandById(brandId);
+    if (brand) {
+      showToast(`Selected ${brand.name}`, 'info');
+    }
+  }, [showToast, brandsWithOverrides]);
+
+  // Handle custom color selection
+  const handleCustomColorSelect = useCallback(() => {
+    setIsCustomColorSelected(true);
+    showToast(`Using custom color: ${customColor}`, 'info');
+  }, [showToast, customColor]);
+
+  // Handle custom color change
+  const handleCustomColorChange = useCallback((color) => {
+    setCustomColor(color);
+    setIsCustomColorSelected(true);
+  }, []);
+
+  // Handle adding a new brand
+  const handleAddNewBrand = useCallback(() => {
+    if (!newBrandName.trim()) {
+      showToast('Please enter a brand name', 'error');
+      return;
+    }
+    
+    const newBrand = {
+      id: `custom-${Date.now()}`,
+      name: newBrandName.trim(),
+      primary: newBrandPrimary,
+      secondary: newBrandSecondary,
+      accent: newBrandAccent,
+      isCustom: true,
+    };
+    
+    setCustomBrands((prev) => [...prev, newBrand]);
+    setShowAddBrandForm(false);
+    setNewBrandName('');
+    setNewBrandPrimary('#3B82F6');
+    setNewBrandSecondary('#1E3A5F');
+    setNewBrandAccent('#E5E7EB');
+    setSelectedBrandId(newBrand.id);
+    setIsCustomColorSelected(false);
+    showToast(`Created "${newBrand.name}" brand`, 'success');
+  }, [newBrandName, newBrandPrimary, newBrandSecondary, newBrandAccent, showToast]);
 
   // Handle file uploads
   const handleFilesAdded = useCallback(async (files, uploadOptions = {}) => {
@@ -515,11 +608,65 @@ function App() {
             <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-4">
               Select Brand Colors
             </h2>
+            
+            {/* Quick Custom Color Picker */}
+            <div
+              onClick={handleCustomColorSelect}
+              className={`
+                relative w-full p-3 rounded-xl cursor-pointer
+                transition-all duration-300 ease-out
+                ${isCustomColorSelected
+                  ? 'bg-neutral-800 border-2 border-yellow-400 shadow-lg shadow-yellow-500/25'
+                  : 'bg-neutral-900/50 border border-neutral-700 hover:bg-neutral-800/50 hover:border-neutral-600'
+                }
+              `}
+            >
+              {isCustomColorSelected && (
+                <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-4 h-4 text-gray-900" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg border-2 border-white/20 shadow-inner flex-shrink-0"
+                  style={{ backgroundColor: customColor }}
+                />
+                <div className="flex-1">
+                  <h4 className={`font-semibold text-sm ${isCustomColorSelected ? 'text-yellow-400' : 'text-gray-300'}`}>
+                    Custom
+                  </h4>
+                  <p className="text-[10px] text-gray-500">Quick one-off color</p>
+                </div>
+                <input
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => handleCustomColorChange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
+                  title="Pick a color"
+                />
+                <input
+                  type="text"
+                  value={customColor}
+                  onChange={(e) => handleCustomColorChange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-20 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded text-xs text-neutral-300 font-mono focus:ring-1 focus:ring-yellow-500"
+                  placeholder="#FFFFFF"
+                />
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-neutral-700 my-4" />
+
+            {/* Brand list */}
             {brandsWithOverrides.map((brand) => (
               <PaintBucket
                 key={brand.id}
                 brand={brand}
-                isSelected={selectedBrandId === brand.id}
+                isSelected={!isCustomColorSelected && selectedBrandId === brand.id}
                 isEdited={!!brandOverrides[brand.id]}
                 onClick={() => handleBrandSelect(brand.id)}
                 onColorChange={handleBrandColorChange}
@@ -527,6 +674,81 @@ function App() {
                 onReset={handleResetBrand}
               />
             ))}
+
+            {/* Add New Brand CTA */}
+            {!showAddBrandForm ? (
+              <button
+                onClick={() => setShowAddBrandForm(true)}
+                className="w-full p-3 rounded-xl border-2 border-dashed border-neutral-600 hover:border-yellow-500/50 bg-neutral-900/30 hover:bg-neutral-800/50 transition-all duration-200 group"
+              >
+                <div className="flex items-center justify-center gap-2 text-neutral-400 group-hover:text-yellow-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span className="font-medium text-sm">Add New Brand</span>
+                </div>
+              </button>
+            ) : (
+              <div className="p-4 bg-neutral-800 border border-neutral-700 rounded-xl space-y-3 animate-fade-in">
+                <h4 className="text-sm font-semibold text-white">Create New Brand</h4>
+                
+                {/* Brand name input */}
+                <input
+                  type="text"
+                  value={newBrandName}
+                  onChange={(e) => setNewBrandName(e.target.value)}
+                  placeholder="Brand name..."
+                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-sm text-neutral-300 focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500"
+                />
+                
+                {/* Color pickers */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <input
+                      type="color"
+                      value={newBrandPrimary}
+                      onChange={(e) => setNewBrandPrimary(e.target.value)}
+                      className="w-full h-8 rounded cursor-pointer bg-transparent border-0"
+                    />
+                    <span className="text-[9px] text-gray-500 uppercase">Primary</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <input
+                      type="color"
+                      value={newBrandSecondary}
+                      onChange={(e) => setNewBrandSecondary(e.target.value)}
+                      className="w-full h-8 rounded cursor-pointer bg-transparent border-0"
+                    />
+                    <span className="text-[9px] text-gray-500 uppercase">Secondary</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <input
+                      type="color"
+                      value={newBrandAccent}
+                      onChange={(e) => setNewBrandAccent(e.target.value)}
+                      className="w-full h-8 rounded cursor-pointer bg-transparent border-0"
+                    />
+                    <span className="text-[9px] text-gray-500 uppercase">Accent</span>
+                  </div>
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddBrandForm(false)}
+                    className="flex-1 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-lg text-xs font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddNewBrand}
+                    className="flex-1 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-neutral-900 rounded-lg text-xs font-medium transition-all"
+                  >
+                    Save Brand
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Instructions */}
@@ -546,7 +768,6 @@ function App() {
           {/* Header with stats and actions */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h2 className="text-white text-3xl font-header font-bold tracking-wide mb-1">Dropzone</h2>
               <p className="text-gray-500">
                 {stats.total === 0 ? (
                   'Upload SVGs or add from Library'
@@ -568,7 +789,7 @@ function App() {
               {/* Library button - always visible */}
               <button
                 onClick={() => setCurrentView('library')}
-                className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-neutral-600 text-neutral-300 hover:text-white font-medium text-sm transition-all duration-200 flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-[#F5D547] hover:bg-[#E5C537] text-gray-900 font-medium text-sm transition-all duration-200 flex items-center gap-2 shadow-lg shadow-yellow-500/25"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -668,6 +889,7 @@ function App() {
         favorites={favorites}
         onToggleFavorite={handleToggleFavorite}
       />
+
     </div>
   );
 }

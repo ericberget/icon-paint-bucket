@@ -63,6 +63,7 @@ export const processSvgFiles = async (files) => {
         currentContent: content,
         paintedWith: null, // Brand ID that was used to paint this icon
         isPainted: false,
+        uploadedAt: new Date().toISOString(), // Timestamp for sorting
       });
     } catch (error) {
       console.error(`Error processing ${file.name}:`, error);

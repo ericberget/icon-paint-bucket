@@ -27,6 +27,7 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
   // Filters
   const [brandFilter, setBrandFilter] = useState('all');
   const [styleFilter, setStyleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('recent');
   
   // Tag editing
   const [editingIconId, setEditingIconId] = useState(null);
@@ -48,9 +49,9 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
     }
   };
 
-  // Filter icons
+  // Filter and sort icons
   const filteredIcons = useMemo(() => {
-    let result = libraryIcons;
+    let result = [...libraryIcons];
 
     // Search filter
     if (searchQuery.trim()) {
@@ -68,8 +69,34 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
       result = result.filter((icon) => icon.tags?.includes(styleFilter));
     }
 
+    // Sort
+    switch (sortBy) {
+      case 'recent':
+        // Most recently added first (assuming higher ID = more recent, or use uploadedAt if available)
+        result.sort((a, b) => (b.uploadedAt || b.id || '').localeCompare(a.uploadedAt || a.id || ''));
+        break;
+      case 'oldest':
+        result.sort((a, b) => (a.uploadedAt || a.id || '').localeCompare(b.uploadedAt || b.id || ''));
+        break;
+      case 'name-asc':
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'favorites':
+        result.sort((a, b) => {
+          const aFav = favorites?.has(a.id) ? 1 : 0;
+          const bFav = favorites?.has(b.id) ? 1 : 0;
+          return bFav - aFav;
+        });
+        break;
+      default:
+        break;
+    }
+
     return result;
-  }, [libraryIcons, searchQuery, brandFilter, styleFilter]);
+  }, [libraryIcons, searchQuery, brandFilter, styleFilter, sortBy, favorites]);
 
   // Handle adding tag to icon
   const handleAddTag = async (iconId, tagId) => {
@@ -209,6 +236,19 @@ const LibraryView = ({ onBack, onAddToWorkspace, favorites, onToggleFavorite }) 
               {STYLE_TAGS.map((tag) => (
                 <option key={tag.id} value={tag.id}>{tag.label}</option>
               ))}
+            </select>
+
+            {/* Sort By */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+            >
+              <option value="recent">Recently Added</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="favorites">Favorites First</option>
             </select>
 
             {/* Results count */}
